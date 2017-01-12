@@ -1,0 +1,54 @@
+version: "2"
+services:
+  invo_www:
+    build: src
+    volumes:
+      - ./src:/var/www
+    links:
+      - invo_mysql:db
+      - invo_cache:cache
+  invo_mysql:
+    image: mysql:5.7
+    environment:
+      - MYSQL_ROOT_PASSWORD=InvoAbc123
+    volumes:
+      - ./stack/mysql/.db/mysql:/var/lib/mysql:rw
+      - ./src/schemas:/docker-entrypoint-initdb.d
+  invo_cache:
+    image: redis
+  invo_adminer:
+    image: rualatngua/devtools:2.0
+    links:
+      - invo_mysql:db
+    ports:
+      - 15001:80
+    volumes:
+      - ./src/migrations:/app
+  invo_thumbor:
+    image: apsl/thumbor
+    volumes:
+      - ./stack/thumbor/.data:/data
+      - ../upload_manager/upload/data:/file_storage:ro
+    environment:
+      - ALLOW_UNSAFE_URL=True
+      - SECURITY_KEY=invo2017
+      - RESULT_STORAGE_STORES_UNSAFE=True
+      - AUTO_WEBP=False
+      - LOADER=thumbor.loaders.file_loader_http_fallback
+      - FILE_LOADER_ROOT_PATH=/file_storage
+  invo_thumbor_nginx:
+    image: apsl/thumbor-nginx:latest
+    links:
+      - invo_thumbor:thumbor
+    volumes:
+      - ./stack/thumbor/.data:/data
+    ports:
+      - 15003:80
+  invo_reverse_proxy:
+    build:
+      ./stacks/nginx/
+    ports:
+      - 15080:80
+    links:
+      - invo_www:www
+
